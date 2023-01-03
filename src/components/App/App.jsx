@@ -1,4 +1,4 @@
-import { Component } from 'react';
+import { useState, useEffect, useLayoutEffect } from 'react';
 import css from './App.module.css';
 import 'react-toastify/dist/ReactToastify.css';
 import { ToastContainer, toast } from 'react-toastify';
@@ -9,29 +9,42 @@ import ImageGallery from 'components/ImageGallery';
 import Loader from 'components/Loader';
 import Button from 'components/Button';
 
-class App extends Component {
-  state = {
-    data: [],
-    status: 'init',
-    page: 26,
-    searchString: '',
-    isFinish: false,
-  };
+const App = () => {
+  const [data, setData] = useState([]);
+  const [status, setStatus] = useState('init');
+  const [page, setPage] = useState(10);
+  const [searchString, setSearchString] = useState('');
+  const [isFinish, setIsFinish] = useState(false);
 
-  componentDidUpdate(prevProps, prevState) {
-    if (prevState.page !== this.state.page) {
-      this.findImages(this.state.searchString);
-    }
+  useEffect(() => {
+    if (!searchString) return;
 
-    if (prevState.searchString !== this.state.searchString) {
-      this.setState({
-        data: [],
-      });
-      this.findImages(this.state.searchString);
-    }
-  }
+    api(searchString, page).then(({ hits: images }) => {
+      console.log(images);
+      // no images
+      if (!images) {
+        setIsFinish(!isFinish);
+        return '';
+      }
 
-  searchData = evt => {
+      if (images.length === 0) {
+        toast('no result', toastSetting);
+        setData([]);
+        setStatus('fail');
+        return '';
+      }
+
+      if (page > 1) {
+        setData([...data, ...images]);
+        return '';
+      }
+
+      setData([...images]);
+      setStatus('loaded');
+    });
+  }, [searchString, page]);
+
+  const searchDataSubmit = evt => {
     evt.preventDefault();
 
     const {
@@ -42,52 +55,14 @@ class App extends Component {
       },
     } = evt;
 
-    if (searchString === this.state.searchString) return '';
+    if (!searchString) return '';
 
-    this.setState({
-      status: 'loading',
-      searchString,
-    });
-
-    this.findImages(searchString);
+    setStatus('loading');
+    setSearchString(searchString);
+    setPage(1);
   };
 
-  findImages = url => {
-    api(url, this.state.page).then(({ hits: images }) => {
-      // no request
-      if (!images) {
-        this.setState(prevState => {
-          return { isFinish: !prevState.isFinish };
-        });
-        return '';
-      }
-      // no images
-      if (images.length === 0) {
-        toast('no result', toastSetting);
-        this.setState({ data: [], status: 'fail' });
-        return '';
-      }
-      // all is good
-      this.setState(prevState => {
-        return {
-          data: [...prevState.data, ...images],
-          status: 'loaded',
-        };
-      });
-    });
-  };
-
-  nextPage = () => {
-    this.setState(prevState => {
-      return {
-        page: prevState.page + 1,
-      };
-    });
-  };
-
-  statusRender(status) {
-    const { data, isFinish } = this.state;
-
+  const statusRender = status => {
     switch (status) {
       case 'init':
         return <span>write smth</span>;
@@ -98,7 +73,11 @@ class App extends Component {
           <>
             <ImageGallery images={data}></ImageGallery>
             {!isFinish ? (
-              <Button addPage={this.nextPage}></Button>
+              <Button
+                addPage={() => {
+                  setPage(page + 1);
+                }}
+              ></Button>
             ) : (
               <p className={css.btnText}>no data</p>
             )}
@@ -109,19 +88,15 @@ class App extends Component {
       default:
         return <span>no status</span>;
     }
-  }
+  };
 
-  render() {
-    const { status } = this.state;
-
-    return (
-      <div className={css.app}>
-        <SearchBar searchData={this.searchData}></SearchBar>
-        {this.statusRender(status)}
-        <ToastContainer></ToastContainer>
-      </div>
-    );
-  }
-}
+  return (
+    <div className={css.app}>
+      <SearchBar searchData={searchDataSubmit}></SearchBar>
+      {statusRender(status)}
+      <ToastContainer></ToastContainer>
+    </div>
+  );
+};
 
 export default App;
