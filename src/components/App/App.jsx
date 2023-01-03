@@ -56,6 +56,7 @@ const App = () => {
     setStatus('loading');
     setSearchString(searchStringInput);
     setPage(1);
+    setIsFinish(false)
   };
 
   const statusRender = status => {
